@@ -1,3 +1,4 @@
+import time
 import os, re, sqlite3, math, json
 from urllib.parse import urlparse
 from dotenv import load_dotenv
@@ -343,7 +344,16 @@ def gemini_generate(prompt, temperature=0.25, max_tokens=700):
                 'contents':[{'parts':[{'text':prompt}]}],
                 'generationConfig':{'temperature':temperature,'maxOutputTokens':max_tokens}
             }
-            r=requests.post(url,json=payload,timeout=35)
+            # A short retry helps with temporary Gemini overloads (HTTP 429/500/502/503/504).
+            r=None
+            for attempt in range(2):
+                r=requests.post(url,json=payload,timeout=35)
+                if r.ok:
+                    break
+                if r.status_code in (429,500,502,503,504) and attempt == 0:
+                    time.sleep(1.2)
+                    continue
+                break
             if not r.ok:
                 try: msg=r.json().get('error',{}).get('message','')
                 except Exception: msg=r.text[:180]
@@ -477,8 +487,10 @@ def main():
                 ans,base_sources,err=answer_question(q,lang,kz)
                 st.subheader('Ответ QazaqFact AI')
                 if not ans:
-                    st.warning('Не удалось сформировать ответ. Trust Score для служебного сообщения не рассчитывается.')
-                    if err:st.caption('Диагностика Gemini: '+err)
+                    if err and any(code in err for code in ('HTTP 429','HTTP 500','HTTP 502','HTTP 503','HTTP 504')):
+                        st.warning('Сервис генерации ответа временно перегружен. QazaqFact уже попробовал резервные модели. Повторите запрос через некоторое время.')
+                    else:
+                        st.warning('Не удалось сформировать ответ. Trust Score для служебного сообщения не рассчитывается.')
                     return
                 st.write(ans)
                 results,errors=verify_text(q,ans,lang,kz,'ask_verify_final')
