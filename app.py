@@ -445,6 +445,10 @@ def main():
     st.set_page_config(page_title='QazaqFact AI',page_icon='🔎',layout='wide')
     st.markdown('''
     <style>
+    /* Final presentation UI: hide Streamlit Community Cloud chrome. */
+    [data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"],
+    #MainMenu, header {visibility: hidden !important; height: 0 !important;}
+    [data-testid="stAppDeployButton"] {display: none !important;}
     /* Keep desktop unchanged; compact only on phones. */
     @media (max-width: 640px) {
       .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important;}
@@ -459,7 +463,7 @@ def main():
     </style>
     ''', unsafe_allow_html=True)
     db_init(); st.title('🔎 QazaqFact AI')
-    st.caption('Учебный ИИ-помощник: спросить → проверить → увидеть источники и Trust Passport')
+    st.caption('ИИ-помощник: спросить → проверить → увидеть источники и Trust Passport')
     st.info('Система оценивает подтверждённость утверждений найденными источниками. Она не определяет «абсолютную истину».')
     lang=st.selectbox('Язык поиска',['ru','kk'],format_func=lambda x:'Русский' if x=='ru' else 'Қазақша')
     kz=st.toggle('🇰🇿 KZ Priority для тем о Казахстане',value=True)
