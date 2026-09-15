@@ -254,14 +254,49 @@ def stance_with_gemini(claim, source):
     return 'support' if x.startswith('SUPPORT') else ('refute' if x.startswith('REFUTE') else 'unclear')
 
 def assess_evidence(claim,sources):
-    for src in sources: src['stance']=stance_with_gemini(claim,src)
+    """Classify all snippets in one Gemini call instead of one slow call per URL.
+
+    The previous version could make up to eight Gemini calls plus eight page
+    downloads for a single claim, which made Streamlit appear frozen.  Snippets
+    are already the evidence shown to the user, so batching them also makes the
+    experiment reproducible.
+    """
+    if not sources:
+        return sources
+    key=os.getenv('GEMINI_API_KEY','').strip()
+    if not key:
+        for src in sources: src['stance']='unclear'
+        return sources
+    blocks=[]
+    for i,src in enumerate(sources[:5],1):
+        evidence=(src.get('title','')+' — '+src.get('snippet','')).strip()[:900]
+        blocks.append(f'{i}. {evidence}')
+    prompt=(
+        'Для каждого пронумерованного фрагмента определи его позицию относительно утверждения. '
+        'SUPPORT — прямо подтверждает; REFUTE — прямо противоречит; UNCLEAR — прямого доказательства нет. '
+        'Верни ровно по одной строке в формате номер|SUPPORT, номер|REFUTE или номер|UNCLEAR. '
+        'При сомнении выбирай UNCLEAR.\n'
+        f'Утверждение: {claim}\nФрагменты:\n'+'\n'.join(blocks)
+    )
+    txt,_=gemini_generate(prompt,temperature=0,max_tokens=120)
+    labels={}
+    for line in txt.splitlines():
+        m=re.search(r'(\d+)\s*[|:.-]\s*(SUPPORT|REFUTE|UNCLEAR)',line.upper())
+        if m: labels[int(m.group(1))]=m.group(2).lower()
+    for i,src in enumerate(sources,1):
+        src['stance']=labels.get(i,'unclear')
     return sources
 
 def retrieve_for_claim(claim,lang='ru',kz_priority=True):
     sources=[]; errors=[]
     sources+=google_factcheck(claim)
-    for q in claim_search_queries(claim,kz_priority):
-        web,err=serper_search(q,7,False)
+    # One main query is enough for the experiment; repeated LLM-generated
+    # queries made a single check take several minutes.
+    queries=[claim]
+    if kz_priority and looks_kazakhstan(claim):
+        queries.append(claim+' Казахстан официальный источник')
+    for q in queries:
+        web,err=serper_search(q,5,False)
         sources+=web
         if err:errors.append(err)
     sources+=wiki_search(claim,lang,4)
@@ -272,7 +307,7 @@ def retrieve_for_claim(claim,lang='ru',kz_priority=True):
         key=(u.rstrip('/'),host,src.get('title','')[:100].lower())
         if u and key not in seen:
             seen.add(key); ded.append(src)
-    ranked=rerank_sources(claim,ded,8,kz_priority)
+    ranked=rerank_sources(claim,ded,5,kz_priority)
     return assess_evidence(claim,ranked),'; '.join(sorted(set(errors)))
 
 def _clean_sentence(s):
