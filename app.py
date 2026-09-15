@@ -443,6 +443,21 @@ def show_passport(results):
 
 def main():
     st.set_page_config(page_title='QazaqFact AI',page_icon='🔎',layout='wide')
+    st.markdown('''
+    <style>
+    /* Keep desktop unchanged; compact only on phones. */
+    @media (max-width: 640px) {
+      .block-container {padding-top: 1rem !important; padding-left: 1rem !important; padding-right: 1rem !important;}
+      h1 {font-size: 2.05rem !important; line-height: 1.08 !important; margin-bottom: .25rem !important;}
+      [data-testid="stCaptionContainer"] {font-size: .92rem !important;}
+      [data-testid="stAlert"] {padding: .75rem .85rem !important;}
+      [data-testid="stAlert"] p {font-size: .96rem !important; line-height: 1.45 !important;}
+      div[data-testid="stRadio"] label {font-size: .95rem !important;}
+      .stButton > button {min-height: 2.8rem !important;}
+      textarea {min-height: 7rem !important;}
+    }
+    </style>
+    ''', unsafe_allow_html=True)
     db_init(); st.title('🔎 QazaqFact AI')
     st.caption('Учебный ИИ-помощник: спросить → проверить → увидеть источники и Trust Passport')
     st.info('Система оценивает подтверждённость утверждений найденными источниками. Она не определяет «абсолютную истину».')
